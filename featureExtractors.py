@@ -90,5 +90,7 @@ class ExpertExtractor(FeatureExtractor):
   Returns expert features considering capsules.
   """ 
   def getFeatures(self, state, action):
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    food = state.getFood()
+    walls = state.getWalls()
+    ghosts = state.getGhostPositions()
+   # à finir 

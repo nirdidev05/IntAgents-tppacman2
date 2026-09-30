@@ -198,15 +198,122 @@ Ligne 0       : [-10] [-10] [-10] [-10] [-10]     ← falaise (états absorbants
 
 ### Question 4
 
-*Précisez le détail du calcul des qvaleurs pour les 3 premiers épisodes.*
+*Précisez le détail du calcul des qvaleurs pour les 4 premiers épisodes.*
+
+On utilise les paramètres par défaut du Q-learning sur le gridworld : α = 0.5, γ = 0.9.
+Au départ, toutes les Q-valeurs sont initialisées à 0.
+
+On rappelle la formule de mise à jour qu'on applique à chaque transition :
+Q(s,a) ← (1−α)·Q(s,a) + α·[r + γ·max_b Q(s',b)]
+
+Comme demandé dans le README, on fait jouer l'agent en mode manuel (`-m`) avec ces trajectoires :
+- Épisodes 1 et 2 : on monte tout au nord puis on va à l'est → on arrive en (3,2) → exit avec récompense +1
+- Épisodes 3 et 4 : on va tout à l'est puis on monte au nord → on arrive en (3,1) → exit avec récompense −1
+
+---
+
+#### Épisode 1 : (0,0)→N→(0,1)→N→(0,2)→E→(1,2)→E→(2,2)→E→(3,2)→exit→+1
+
+Vu que toutes les Q-valeurs valent 0 au départ, à chaque étape on a max Q(s') = 0 et la récompense vaut 0 aussi, donc les mises à jour ne changent rien... sauf la toute dernière transition où on reçoit enfin r = +1 :
+
+| Étape | s | a | s' | r | sample = r + γ·max Q(s') | Q(s,a) ← |
+|-------|---|---|----|---|--------------------------|-----------|
+| 1-5 | (0,0)→...→(2,2) | north/east | ... | 0 | 0 + 0.9×0 = 0 | reste à 0 |
+| 6 | (3,2) | exit | TERMINAL | **+1** | 1 + 0.9×0 = 1 | 0.5×0 + 0.5×1 = **0.5** |
+
+Après cet épisode, on a une seule Q-valeur non nulle : Q((3,2), exit) = **0.5**
+
+---
+
+#### Épisode 2 : même trajectoire
+
+Cette fois c'est plus intéressant. Quand on arrive en (2,2) et qu'on fait east vers (3,2), le max Q((3,2)) n'est plus 0 mais 0.5 (grâce à l'épisode 1). Du coup la valeur se propage :
+
+| Étape | s | a | s' | r | sample | Q(s,a) ← |
+|-------|---|---|----|---|--------|-----------|
+| 1-4 | (0,0)→...→(1,2) | ... | ... | 0 | 0 | reste à 0 |
+| 5 | (2,2) | east | (3,2) | 0 | 0 + 0.9×**0.5** = 0.45 | 0.5×0 + 0.5×0.45 = **0.225** |
+| 6 | (3,2) | exit | TERMINAL | +1 | 1 + 0.9×0 = 1 | 0.5×0.5 + 0.5×1 = **0.75** |
+
+On voit ici un truc important : l'info de récompense se **propage en arrière**. Au 1er épisode, seul (3,2) avait appris quelque chose. Au 2e, c'est (2,2) qui récupère une Q-valeur parce qu'il sait maintenant que (3,2) a de la valeur.
+
+Q-valeurs non nulles : Q((2,2), east) = **0.225**, Q((3,2), exit) = **0.75**
+
+---
+
+#### Épisode 3 : (0,0)→E→(1,0)→E→(2,0)→E→(3,0)→N→(3,1)→exit→−1
+
+On change de chemin : on va vers l'est par le bas, et on tombe sur l'état −1. Même logique, toutes les Q-valeurs sur ce chemin sont à 0, seule la dernière transition change quelque chose :
+
+| Étape | s | a | s' | r | sample | Q(s,a) ← |
+|-------|---|---|----|---|--------|-----------|
+| 1-4 | (0,0)→...→(3,0) | east/north | ... | 0 | 0 | reste à 0 |
+| 5 | (3,1) | exit | TERMINAL | **−1** | −1 + 0.9×0 = −1 | 0.5×0 + 0.5×(−1) = **−0.5** |
+
+Q-valeurs non nulles : Q((2,2), east) = 0.225, Q((3,1), exit) = **−0.5**, Q((3,2), exit) = 0.75
+
+---
+
+#### Épisode 4 : même trajectoire que l'épisode 3
+
+Comme pour l'épisode 2, la 2e fois qu'on passe par ce chemin, l'info se propage d'un cran en arrière. (3,0) apprend que monter vers (3,1) c'est une mauvaise idée :
+
+| Étape | s | a | s' | r | sample | Q(s,a) ← |
+|-------|---|---|----|---|--------|-----------|
+| 1-3 | (0,0)→...→(2,0) | east | ... | 0 | 0 | reste à 0 |
+| 4 | (3,0) | north | (3,1) | 0 | 0 + 0.9×(−0.5) = **−0.45** | 0.5×0 + 0.5×(−0.45) = **−0.225** |
+| 5 | (3,1) | exit | TERMINAL | −1 | −1 + 0 = −1 | 0.5×(−0.5) + 0.5×(−1) = **−0.75** |
+
+Q-valeurs non nulles finales :
+
+| Couple (s, a) | Q-valeur |
+|---------------|----------|
+| Q((2,2), east) | 0.225 |
+| Q((3,2), exit) | 0.75 |
+| Q((3,0), north) | −0.225 |
+| Q((3,1), exit) | −0.75 |
+
+Ce qu'on remarque, c'est qu'après 4 épisodes, seuls les états proches des terminaux ont des Q-valeurs non nulles. L'information se propage lentement : un état de plus par épisode. C'est très différent de Value Iteration qui met à jour tous les états d'un coup à chaque itération.
 
 ### Question 5
 
 *Expliquer les différences entre le résultat obtenu avec epsilon à 0.1 et à 0.9.*
 
+**Commandes :**
+- `python gridworld.py -a q -k 100 --noise 0.0 -e 0.1 -q`
+- `python gridworld.py -a q -k 100 --noise 0.0 -e 0.9 -q`
+
+Avec **ε = 0.1**, l'agent ne prend une action aléatoire que 10% du temps. Dès qu'il a trouvé le bon chemin vers +1, il l'exploite presque systématiquement. Du coup le return moyen pendant l'entraînement est plutôt bon (~0.39), parce que l'agent suit la bonne politique 90% du temps.
+
+Avec **ε = 0.9**, c'est l'inverse : l'agent fait n'importe quoi 90% du temps. Il explore énormément, ce qui fait qu'il se retrouve souvent dans l'état −1 ou qu'il erre dans la grille sans but. Le return moyen est du coup très faible (~0.015).
+
+Ce qui est intéressant c'est que dans les deux cas, la politique apprise (les Q-valeurs) converge vers la même politique optimale. Avec ε = 0.9, l'agent a visité beaucoup plus de couples (s,a) différents grâce à l'exploration, mais ça ne lui a pas donné un avantage ici vu que la grille est petite.
+
+En résumé : ε petit = bon return pendant l'entraînement mais risque de pas assez explorer, ε grand = return faible mais meilleure exploration. C'est le dilemme **exploration vs exploitation** qu'on a vu en cours. En pratique, une valeur intermédiaire (genre 0.1 à 0.3) est un bon compromis.
+
 ### Question 6
 
 *Préciser comment est modélisé l'environnement robot crawler sous forme de MDP (état, action, récompense) ainsi que la dimension de S. Quel est le comportement attendu de l'agent s'il suit sa politique optimale ?*
+
+**Commande :** `python crawler.py`
+
+En regardant le code de `crawler.py`, on peut décrire le MDP du robot :
+
+**États (S) :** chaque état correspond à une position (angleBras, angleMain). Les angles sont discrétisés :
+- le bras a **9 positions** possibles (entre un angle min et max)
+- la main a **13 positions** possibles
+
+Donc au total on a **|S| = 9 × 13 = 117 états**.
+
+**Actions (A) :** à chaque état, l'agent peut faire entre 2 et 4 actions :
+- `arm-up` / `arm-down` : monter ou descendre l'angle du bras
+- `hand-up` / `hand-down` : monter ou descendre l'angle de la main
+
+Aux bords (quand le bras ou la main est à son angle min ou max), certaines actions ne sont pas disponibles.
+
+**Récompense (R) :** c'est simplement le déplacement horizontal du robot : R = newX − oldX. Si le robot avance vers la droite, la récompense est positive ; s'il recule, elle est négative.
+
+**Comportement optimal :** quand l'agent a appris sa politique optimale, on voit le robot qui rampe de manière fluide vers la droite. Il enchaîne un mouvement cyclique de bras et de main (un peu comme un mouvement de nage) qui maximise son avancement à chaque pas. C'est assez satisfaisant à regarder dans l'interface graphique.
 
 ### Question 7
 
